@@ -157,37 +157,72 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             if (isset($_POST["add-album"])) {
                 $albumTitle = filter_input(INPUT_POST, "album-title", FILTER_SANITIZE_SPECIAL_CHARS);
+                $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
                 $artistId = 0;
                 $query = "SELECT * FROM artists";
 
                 $statement = $pdo -> query($query);
                 $artists = $statement -> fetchAll(PDO :: FETCH_ASSOC);
-
+                $getArtistId = Null;
                 foreach($artists as $artist) {
-                    if ($artist["Name"] == $_POST["artist"]) {
-                        $artistId = $artist["ArtistId"];
+                    if ($artist["Name"] == $artistName) {
+                        $getArtistId = $artist["ArtistId"];
                     }
+                }
+
+                if (!$getArtistId) {
+                    $query = "SELECT ArtistId FROM artists ORDER BY ArtistId  DESC LIMIT 1";
+                    $statement = $pdo -> query($query);
+                    $lastArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)["ArtistId"];
+                    $getArtistId = $lastArtistId + 1;
+                    $query = "INSERT INTO artists (ArtistId, Name) VALUES(:artistId, :name)";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
+                    $statement -> bindValue(":name", $artistName, PDO :: PARAM_STR);
+                    $statement -> execute();
+
                 }
 
                 $query = "SELECT AlbumId FROM albums ORDER BY AlbumId DESC LIMIT 1";
 
                 $statement = $pdo -> query($query);
-                $lastAlbumId = $statement -> fetch(PDO :: FETCH_ASSOC);
+                $lastAlbumId = $statement -> fetch(PDO :: FETCH_ASSOC)["AlbumId"];
+                $newAlbumId = $lastAlbumId + 1;
 
                 $query =  "INSERT INTO albums (AlbumId, Title, ArtistId) VALUES(:albumId, :title, :artistId)";
                 $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":albumId", $lastAlbumId["AlbumId"] + 1, PDO :: PARAM_INT);
+                $statement -> bindValue(":albumId", $newAlbumId, PDO :: PARAM_INT);
                 $statement -> bindValue(":title", $albumTitle, PDO :: PARAM_STR);
-                $statement -> bindValue(":artistId", $artistId, PDO :: PARAM_INT);
-
+                $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
                 $statement -> execute();
 
-                $statement = null;
-                $pdo = null;
+                unset($_POST["add-album"]);
+                unset($_POST["album-title"]);
+                unset($_POST["artist"]);
+
+
+                $query = "SELECT TrackId FROM tracks ORDER BY TrackId DESC LIMIT 1";
+
+                $statement = $pdo -> query($query);
+                $lastTrackId = $statement -> fetch(PDO :: FETCH_ASSOC)["TrackId"];
+                $submittedTracks = $_POST;
+                $incrementId = 1;
+                foreach($submittedTracks as $track){
+                    $query =  "INSERT INTO tracks (TrackId, Name, AlbumId) VALUES(:trackId, :name, :albumId)";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":trackId", $lastTrackId + $incrementId, PDO :: PARAM_INT);
+                    $statement -> bindValue(":name", $track, PDO :: PARAM_STR);
+                    $statement -> bindValue(":albumId", $newAlbumId, PDO :: PARAM_INT);
+                    $statement -> execute();
+                    $incrementId++;
+                }
+                
+                $statement = NULL;
+                $pdo = NULL;
 
             }
 
-            header("location: index.php?action=home");
+            // header("location: index.php?action=home");
 
             
 
@@ -413,9 +448,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                         <?php endforeach; ?>
                     </datalist>
             <input type="text" class="form-field add-album" name="album-title" placeholder="Enter album title" required>
+            <input type="text" name="newTrack-0" placeholder="Enter track title" class="form-field add-track-field" required>
             <div id="newTrack">
-                <input type="text" name="newTrack-0" placeholder="Enter track title" class="form-field add-track-field" id="newTrack-0">
-                <button type="button" id="btn-0" class="remove-track submit-track" onclick="removeTrack('newTrack-0', 'btn-0')">Cancel</button>
             </div>
             <div class="update-form-btn " id="add-album">
                 <button type="submit" name="add-album" class="form-update" id="form-update-btn">Create album</button>

@@ -60,6 +60,7 @@ function addTrack2() {
     input.placeholder = "Enter track title";
     input.className = "form-field add-track-field";
     input.id = `newTrack-${current}`;
+    input.required = true;
 
     
     addBtn.className = "remove-track submit-track";
