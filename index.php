@@ -65,7 +65,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $statement = null;
                     $pdo = null;
 
-                    header("location: ?action=album-update&albumId=" . $albumId);
+                    header("location: index.php?action=album-update&albumId=" . $albumId);
 
                 } catch (PDOException $e) {
                     die("Something went wrong" . $e -> getMessage());
@@ -106,7 +106,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $statement = null;
                 $pdo = null;
 
-                header("location: ?action=album-update&albumId=" . $albumId);
+                header("location: index.php?action=home");
 
             }
 
@@ -152,6 +152,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
                     $statement -> execute();
                 }
+
+                header("location: index.php?action=home");
+
 
             }
 
@@ -220,10 +223,104 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $statement = NULL;
                 $pdo = NULL;
 
+                header("location: index.php?action=home");
+
+
+            }
+            if (isset($_POST["create-artist"])) {
+                $query = "SELECT * FROM artists ORDER BY ArtistId DESC LIMIT 1";
+                $statement = $pdo -> query($query);
+                $lastArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)["ArtistId"];
+                $newArtistId = $lastArtistId + 1;
+
+                $newArtistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_STRING);
+
+                $query = "INSERT INTO artists (ArtistId, Name) VALUES(:artistId, :artistName)";
+                $statement = $pdo -> prepare($query);
+                $statement -> bindValue(":artistId", $newArtistId, PDO :: PARAM_INT);
+                $statement -> bindValue(":artistName", $newArtistName, PDO :: PARAM_STR);
+
+                $statement -> execute();
+
+                $statement = null;
+                $pdo = null;
+
+                header("location: index.php?action=artist");
+
             }
 
-            // header("location: index.php?action=home");
+            if(isset($_POST["update-artist"])) {
+                $artistNewName = filter_input(INPUT_POST, "new-name", FILTER_SANITIZE_STRING);
+                $artistId = filter_input(INPUT_POST, "artistId", FILTER_SANITIZE_STRING);
+                $query = "UPDATE artists SET Name = :newName WHERE ArtistId = :artistId";
+                $statement = $pdo -> prepare($query);
+                $statement -> bindValue(":newName", $artistNewName, PDO :: PARAM_STR);
+                $statement -> bindValue(":artistId", $artistId, PDO :: PARAM_INT);
 
+                $statement -> execute();
+
+                $statement = null;
+                header("location: index.php?action=artist");
+
+
+
+            }
+
+            if(isset($_POST["confirm-delete"])) {
+                $deletedArtistId = filter_input(INPUT_POST, "deleted-artist-id", FILTER_SANITIZE_STRING);
+                if($deletedArtistId) {
+                    $query = "SELECT artists.ArtistId, albums.AlbumId, tracks.TrackId
+                                FROM artists
+                                LEFT JOIN albums 
+                                    ON artists.ArtistId = albums.ArtistId
+                                LEFT JOIN tracks
+                                    ON albums.AlbumId = tracks.AlbumId
+                                WHERE artists.ArtistId = :artistId";
+
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistId", $deletedArtistId, PDO :: PARAM_INT);
+                    $statement -> execute();
+                    $data = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+
+
+                    if ( $data ) {
+
+
+                        if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && (!$data[0]["AlbumId"] ?? !$data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
+
+                            $query = "DELETE FROM artists WHERE ArtistId = :artistId";
+
+                        } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
+
+                            $query = "DELETE artists, albums FROM artists
+                                        INNER JOIN albums
+                                            ON albums.ArtistId = artists.ArtistId
+                                        WHERE artists.ArtistId = :artistId";
+
+                        } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && ($data[0]["TrackId"] ?? $data["TrackId"])){
+
+                            $query = "DELETE artists, albums, tracks FROM artists
+                                        INNER JOIN albums
+                                            ON albums.ArtistId = artists.ArtistId
+                                        INNER JOIN tracks
+                                            ON tracks.AlbumId = albums.AlbumId
+                                        WHERE artists.ArtistId = :artistId";
+                        
+                        }
+
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":artistId", $deletedArtistId, PDO :: PARAM_INT);
+                        $statement -> execute();
+
+                    }
+
+                    $statement = null;
+                    $pdo = null;
+                }
+
+                header("location: index.php?action=artist");
+
+            }
             
 
 } else {
@@ -298,6 +395,65 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             $statement = $pdo -> query($query);
             $artists = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+        }
+
+        if ($action == "artist") {
+            $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT, [
+                'options' => [
+                    'default' => 1,  
+                    'min_range' => 1 
+                ]
+            ]);
+
+
+            $pagination_start = ($page - 1) * 10;
+            $query = "SELECT * FROM artists
+                        ORDER BY ArtistId
+                        DESC   
+                        LIMIT :pagination_start, :count_per_page";
+
+            $statement = $pdo->prepare($query);
+            $statement->bindValue(':pagination_start', $pagination_start, PDO::PARAM_INT);
+            $statement->bindValue(':count_per_page', 10, PDO::PARAM_INT);
+            $statement->execute();
+
+                
+            $data = $statement->fetchAll(PDO::FETCH_ASSOC);
+
+            $count_artists = "SELECT COUNT(*) FROM artists";
+            $statement = $pdo->query($count_artists);
+            $number_of_artists = $statement->fetchColumn();
+            
+        }
+
+        if ($action == "artist-view" || $action == "artist-update" || $action == "artist-delete") {
+
+            $artistId = filter_input(INPUT_GET, "artistId", FILTER_SANITIZE_STRING);
+            if($artistId) {
+                $query = "SELECT artists.Name as artist, artists.ArtistId as artistId, albums.Title as albumTitle, albums.AlbumId as albumId
+                            FROM artists
+                            INNER JOIN albums
+                            ON artists.ArtistId = albums.ArtistId
+                            WHERE artists.ArtistId = :artistId";
+                            
+                $statement = $pdo -> prepare($query);
+                $statement -> bindValue(":artistId",$artistId, PDO :: PARAM_INT);
+                $statement -> execute();
+
+                $artist = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+
+                if(empty($artist)) {
+                    $query = "SELECT * FROM artists WHERE ArtistId = :artistId";
+
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistId", $artistId, PDO :: PARAM_INT);
+                    $statement -> execute();
+
+                    $noAlbumArtist = $statement -> fetch(PDO :: FETCH_ASSOC);  
+
+                }
+            }
+
         }
     }
 }
@@ -391,7 +547,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php endif; ?>
 
 
-
     <?php if($action == "album-update"): ?>
         <h3 class="headers">
         ALBUM TITLE &nbsp; &nbsp;
@@ -441,7 +596,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 
         <form action="?action=home" method="post" class="add-album-form">
 
-            <input type="text" name="artist" list="artists" class="form-field add-album" placeholder="Select artist">
+            <input type="text" name="artist" list="artists" class="form-field add-album" placeholder="Select/Enter a new artist">
             <datalist type="text" id="artists">
                 <?php foreach($artists as $artist): ?>
                     <option value="<?php echo $artist["Name"] ?>"  class="list-options">
@@ -458,6 +613,118 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         </form>
 
     <?php endif; ?>
+
+    <?php if($action == "artist"): ?>
+                            
+        <div class="artist-page">
+            <div class="create-artist-container">
+                <h3 class="headers create-artist">CREATE ARTIST</h3>
+                <form action="" method="post" class="artist-form">
+                    <input type="text" placeholder="Enter artist name" name="artist" class="form-field add-artist-form-field" required>
+                    <button type="submit" class="create-artist-btn" name="create-artist">CREATE</button>
+                </form>
+            </div>
+            <div class="view-artists-container">
+                <h3 class="headers">ARTISTS</h3>
+                <div class="artists-container">
+                    <?php foreach($data as $artist):?>
+                        <div class="artist-row">
+                        <div class="artist-name"><?php echo htmlspecialchars($artist["Name"]) ?></div>
+                        <div class="action-btn-container artist-view">
+                            <a href='?action=artist-view&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>'   class='artist-page-btn'>View</a>
+                            <a href='?action=artist-update&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Update</a>
+                            <a href='?action=artist-delete&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Delete</a>
+                        </div>
+                        </div>
+                    <?php endforeach ?>
+                </div>
+                <div class="pagination">
+                    <?php
+                        $total_pages = ceil($number_of_artists / 10);
+                        if ($page > 1) {
+                            echo "<a class='pagination-btn' href='?action=artist&page=" . ($page - 1) . "'>Previous</a>";
+                        }
+                        echo $page . " of " . $total_pages;
+                        if ($page < $total_pages) {
+                            echo "<a class='pagination-btn next-btn' href='?action=artist&page=" . ($page + 1) . "'>Next</a>";
+                        }
+
+                    ?>
+
+                </div>
+
+            </div>
+        </div>
+    <?php endif; ?>
+    
+    <?php if($action == "artist-view"): ?>
+        <h3 class="headers">ARTIST &nbsp; &nbsp;<span class="album-title-h"><?php echo htmlspecialchars($artist[0]["artist"] ?? $noAlbumArtist["Name"]) ?></span></h3>
+        <div class="tracks-container">
+            <h4 class="track-title">Albums</h4>
+                <?php if (!empty($artist)): ?>
+
+                    <?php $count = 1?>
+                    <?php foreach($artist as $album): ?>
+                        <div class='album-row'>
+                            <div><?php echo $count . ". " .  htmlspecialchars($album["albumTitle"])?></div>
+                            <div class='action-btn-container artist-view'>
+                            <a href='?action=album-view&albumId=<?php echo $album["albumId"]?>' class='artist-page-btn'>View</a>
+                            <a href='?action=album-update&albumId=<?php echo $album["albumId"]?>' class='artist-page-btn'>Update</a>
+                            <a href='?action=album-delete&albumId=<?php echo $album["albumId"]?>' class='artist-page-btn'>Delete</a>
+
+                            </div>
+                        </div>
+                        <?php $count++?>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <div class='track-container empty-album'>Artist has no album yet....</div>
+                <?php endif; ?>
+        </div>
+    <?php endif; ?>
+
+    <?php if($action == "artist-update"): ?>
+
+        <h3 class="headers">ARTIST &nbsp; &nbsp;<span class="album-title-h"><?php echo htmlspecialchars($artist[0]["artist"] ?? $noAlbumArtist["Name"])?></span></h3>
+
+        <form action="index.php" method="post" class="artist-form">
+            <input type="text" class="artist-update-field" name="new-name" placeholder="Enter new name" required>
+            <input type="hidden" class="artist-update-field" name="artistId" value="<?php echo htmlspecialchars($artist[0]["ArtistId"] ?? $noAlbumArtist["ArtistId"]) ?>">
+            <button type="submit" class="add-album-btn" name="update-artist">UPDATE</button>
+        </form>
+    <?php endif; ?>
+
+    <?php if($action == "artist-delete"): ?>
+
+            
+        <h3 class="headers">ARTIST &nbsp; &nbsp;<span class="album-title-h"><?php echo htmlspecialchars($artist[0]["artist"] ?? $noAlbumArtist["Name"]) ?></span></h3>
+        <div class="tracks-container">
+            <h4 class="track-title">Albums</h4>
+            <?php
+                if (!empty($artist)){
+
+                    $count = 1;
+                    foreach($artist as $album){
+                        echo "<div class='album-row'>";
+                            echo "<div>" . $count . ". " . htmlspecialchars($album['albumTitle']) . "</div>";
+                        echo "</div>";
+                        $count++;
+                    }
+                } else {
+                    echo "<div class='track-container empty-album'>Artist has no album yet....</div>";
+                }
+
+            ?>
+
+        </div>
+        <form action="index.php" method="post" class="delete-album-form">
+            <input type="hidden" name="deleted-artist-id" value="<?php echo $artistId ?>">
+            <p class="delete-prompt">Are you sure to delete this artist along with its albums?</p>
+            <button class="delete-album-btn" id="confirm-delete-btn" type="submit" name="confirm-delete">Yes</button>
+            <a class="delete-album-btn" href="index.php">No</a>
+        </form>
+
+    <?php endif; ?>
+
     
 </body>
 </html>
