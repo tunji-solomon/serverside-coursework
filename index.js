@@ -24,6 +24,7 @@ function addTrack(element, emptyMessage=null) {
             input.name = "new_track";
             input.placeholder = "Enter track title";
             input.className = "form-field";
+            input.required = true;
             
             addBtn.className = "remove-track submit-track";
             addBtn.innerHTML = " Submit ";

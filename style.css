@@ -375,6 +375,7 @@ h2 {
 /* album delete page */ 
 .delete-album-form {
     justify-self: center;
+    margin-bottom: 100px;
 }
 .delete-prompt {
     display: inline;
