@@ -1,356 +1,355 @@
 <?php
 
-// DATABASE CONNECTION
-$dsn = "mysql:host=localhost;dbname=chinook";
-$dbusername = "root";
-$dbpassword = "";
+    // DATABASE CONNECTION
+    $dsn = "mysql:host=localhost;dbname=chinook";
+    $dbusername = "root";
+    $dbpassword = "";
 
-try {
+    try {
 
-$pdo = new PDO ($dsn, $dbusername, $dbpassword);
-$pdo -> setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $pdo = new PDO ($dsn, $dbusername, $dbpassword);
+    $pdo -> setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-} catch (PDOException $e) {
-    die("Database connection failed" . $e -> getMessage());
-    
-}
+    } catch (PDOException $e) {
+        die("Database connection failed" . $e -> getMessage());
+        
+    }
 
-$action = "";
-$artistData = [];
-$searchedArtist = NULL;
+    $action = "";
+    $artistData = [];
+    $searchedArtist = NULL;
 
-//SANITIZED INPUT BEFORE USE
-$albumId = filter_input(INPUT_GET , "albumId", FILTER_SANITIZE_SPECIAL_CHARS);
-$artistId = filter_input(INPUT_GET , "artistId", FILTER_SANITIZE_SPECIAL_CHARS);
+    //SANITIZED INPUT BEFORE USE
+    $albumId = filter_input(INPUT_GET , "albumId", FILTER_SANITIZE_SPECIAL_CHARS);
+    $artistId = filter_input(INPUT_GET , "artistId", FILTER_SANITIZE_SPECIAL_CHARS);
 
-// POST REQUEST LOGIC
-if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    // POST REQUEST LOGIC
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
-            //NEW TRACK REQUEST HANDLER
-            if(isset($_POST["new_track"])) {
+                //NEW TRACK REQUEST HANDLER
+                if(isset($_POST["new_track"])) {
 
-                $newTrack = filter_input(INPUT_POST, "new_track", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                try {
-
-                    //GET LAST TRACKID
-                    $query = "SELECT * FROM tracks ORDER BY TrackId DESC LIMIT 1";
-                    $statement = $pdo -> query($query);
-                    $lastTrack = $statement -> fetch(PDO :: FETCH_ASSOC);
-                    $lastTrackId = $lastTrack["TrackId"];
-                    $newTrackId = $lastTrackId + 1; 
-                    $statement = null;
-
-
-                    //INSERT NEW TRACK INTO ALBUM
-                    $query = "INSERT INTO tracks (TrackId, Name, AlbumId) VALUES(:trackId, :name, :albumId)";
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":trackId", $newTrackId, PDO::PARAM_INT);
-                    $statement -> bindValue(":name", $newTrack, PDO::PARAM_STR);
-                    $statement -> bindValue(":albumId", $albumId, PDO::PARAM_INT);
-                    $statement -> execute();
-
-                    $pdo = null;
-                    $statement2 = null;
-
-                    header("location: ?action=album-update&albumId=" . $albumId);
-
-                } catch (PDOException $e){
-                    die("Something went wrong" . $e -> getMessage());
-                }
-
-            }
-
-            // REMOVE TRACK REQUEST HANDLER
-            if(isset($_POST["removed_track"])) {
-
-                $removedTrackId = $_POST["removed_track"];
-
-                try {
-                    $query = "DELETE FROM tracks WHERE TrackId = :trackId";
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":trackId", $removedTrackId, PDO :: PARAM_INT);
-                    $statement -> execute();
-
-                    $statement = null;
-                    $pdo = null;
-
-                    header("location: index.php?action=album-update&albumId=" . $albumId);
-                } catch (PDOException $e) {
-                    die("Something went wrong" . $e -> getMessage());
-                }
-            }
-
-            // UPDATE ALBUM REQUEST HANDLER
-            if(isset($_POST["update_album"])) {  
-                
-                unset($_POST["update_album"]);
-                if(isset($_POST["album-title"])) {
-
-                    $newTitle = filter_input(INPUT_POST, "album-title", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                    $query = "UPDATE albums SET albums.Title = :newTitle WHERE albums.AlbumId = :albumId ";
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":newTitle", $newTitle, PDO :: PARAM_STR);
-                    $statement -> bindValue(":albumId", $albumId, PDO :: PARAM_INT);
-                    $statement -> execute();
-
-                    unset($_POST["album-title"]);
-                }
-
-                foreach($_POST as $trackId => $trackName){
-
-                    $trackName = filter_var($trackName, FILTER_SANITIZE_STRING);
+                    $newTrack = filter_input(INPUT_POST, "new_track", FILTER_SANITIZE_SPECIAL_CHARS);
 
                     try {
-                        $query = "UPDATE tracks SET Name = :trackName WHERE TrackId = :trackId";
+
+                        //GET LAST TRACKID
+                        $query = "SELECT * FROM tracks ORDER BY TrackId DESC LIMIT 1";
+                        $statement = $pdo -> query($query);
+                        $lastTrack = $statement -> fetch(PDO :: FETCH_ASSOC);
+                        $lastTrackId = $lastTrack["TrackId"];
+                        $newTrackId = $lastTrackId + 1; 
+                        $statement = null;
+
+
+                        //INSERT NEW TRACK INTO ALBUM
+                        $query = "INSERT INTO tracks (TrackId, Name, AlbumId) VALUES(:trackId, :name, :albumId)";
                         $statement = $pdo -> prepare($query);
-                        $statement -> bindValue(":trackName", $trackName, PDO :: PARAM_STR);
-                        $statement -> bindValue(":trackId", $trackId, PDO :: PARAM_INT);
+                        $statement -> bindValue(":trackId", $newTrackId, PDO::PARAM_INT);
+                        $statement -> bindValue(":name", $newTrack, PDO::PARAM_STR);
+                        $statement -> bindValue(":albumId", $albumId, PDO::PARAM_INT);
                         $statement -> execute();
 
-                        } catch (PDOException $e) {
-                            die("Something went wrong" . $e -> getMessage());
+                        $pdo = null;
+                        $statement2 = null;
+
+                        header("location: ?action=album-update&albumId=" . $albumId);
+
+                    } catch (PDOException $e){
+                        die("Something went wrong" . $e -> getMessage());
                     }
-                }
-                    
-                $statement = null;
-                $pdo = null;
-                header("location: index.php?action=home");
 
-            }
-
-            //DELETE ALBUM REQUEST HANDLER
-            if (isset($_POST["confirm-delete-album"])) {
-
-                $deletedAlbum = filter_input(INPUT_POST, "deleted-album-id", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                $query = "SELECT ArtistId FROM albums WHERE AlbumId = :albumId";
-                $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
-                $statement -> execute();
-                $albumArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)['ArtistId'];
-
-                $query = "SELECT artists.ArtistId, albums.AlbumId FROM artists 
-                            INNER JOIN albums
-                            ON albums.ArtistId = artists.ArtistId
-                            WHERE artists.ArtistId = :artistId";
-                $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":artistId", $albumArtistId, PDO :: PARAM_INT);
-                $statement -> execute();
-                $albumsByArtist = $statement -> fetchAll(PDO :: FETCH_ASSOC);
-                $number_of_albums = count($albumsByArtist);
-
-                if ( $number_of_albums > 1) {
-
-                    $query = "DELETE albums, tracks FROM albums
-                                LEFT JOIN tracks
-                                    ON tracks.AlbumId = albums.AlbumId
-                                WHERE albums.AlbumId = :albumId";
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
-                    $statement -> execute();
-
-                    
-                } else {
-                    
-                    $query = "DELETE albums, tracks, artists FROM albums
-                                LEFT JOIN tracks
-                                    ON tracks.AlbumId = albums.AlbumId
-                                LEFT JOIN artists
-                                    ON artists.ArtistId = albums.ArtistId
-                                WHERE albums.AlbumId = :albumId";
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
-                    $statement -> execute();
                 }
 
-                header("location: index.php?action=home");
+                // REMOVE TRACK REQUEST HANDLER
+                if(isset($_POST["removed_track"])) {
 
+                    $removedTrackId = $_POST["removed_track"];
 
-            }
+                    try {
+                        $query = "DELETE FROM tracks WHERE TrackId = :trackId";
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":trackId", $removedTrackId, PDO :: PARAM_INT);
+                        $statement -> execute();
 
-            // ADD ALBUM REQUEST HANDLER
-            if (isset($_POST["add-album"])) {
+                        $statement = null;
+                        $pdo = null;
 
-                $albumTitle = filter_input(INPUT_POST, "album-title", FILTER_SANITIZE_SPECIAL_CHARS);
-                $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
-                $artistId = 0;
-
-                $query = "SELECT * FROM artists";
-                $statement = $pdo -> query($query);
-                $artists = $statement -> fetchAll(PDO :: FETCH_ASSOC);
-                $getArtistId = Null;
-
-                foreach($artists as $artist) {
-                    if ($artist["Name"] == $artistName) {
-                        $getArtistId = $artist["ArtistId"];
+                        header("location: index.php?action=album-update&albumId=" . $albumId);
+                    } catch (PDOException $e) {
+                        die("Something went wrong" . $e -> getMessage());
                     }
                 }
 
-                if (!$getArtistId) {
+                // UPDATE ALBUM REQUEST HANDLER
+                if(isset($_POST["update_album"])) {  
+                    
+                    unset($_POST["update_album"]);
+                    if(isset($_POST["album-title"])) {
 
-                    $query = "SELECT ArtistId FROM artists ORDER BY ArtistId  DESC LIMIT 1";
+                        $newTitle = filter_input(INPUT_POST, "album-title", FILTER_SANITIZE_SPECIAL_CHARS);
+
+                        $query = "UPDATE albums SET albums.Title = :newTitle WHERE albums.AlbumId = :albumId ";
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":newTitle", $newTitle, PDO :: PARAM_STR);
+                        $statement -> bindValue(":albumId", $albumId, PDO :: PARAM_INT);
+                        $statement -> execute();
+
+                        unset($_POST["album-title"]);
+                    }
+
+                    foreach($_POST as $trackId => $trackName){
+
+                        $trackName = filter_var($trackName, FILTER_SANITIZE_STRING);
+
+                        try {
+                            $query = "UPDATE tracks SET Name = :trackName WHERE TrackId = :trackId";
+                            $statement = $pdo -> prepare($query);
+                            $statement -> bindValue(":trackName", $trackName, PDO :: PARAM_STR);
+                            $statement -> bindValue(":trackId", $trackId, PDO :: PARAM_INT);
+                            $statement -> execute();
+
+                            } catch (PDOException $e) {
+                                die("Something went wrong" . $e -> getMessage());
+                        }
+                    }
+                        
+                    $statement = null;
+                    $pdo = null;
+                    header("location: index.php?action=home");
+
+                }
+
+                //DELETE ALBUM REQUEST HANDLER
+                if (isset($_POST["confirm-delete-album"])) {
+
+                    $deletedAlbum = filter_input(INPUT_POST, "deleted-album-id", FILTER_SANITIZE_SPECIAL_CHARS);
+
+                    $query = "SELECT ArtistId FROM albums WHERE AlbumId = :albumId";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
+                    $statement -> execute();
+                    $albumArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)['ArtistId'];
+
+                    $query = "SELECT artists.ArtistId, albums.AlbumId FROM artists 
+                                INNER JOIN albums
+                                ON albums.ArtistId = artists.ArtistId
+                                WHERE artists.ArtistId = :artistId";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistId", $albumArtistId, PDO :: PARAM_INT);
+                    $statement -> execute();
+                    $albumsByArtist = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+                    $number_of_albums = count($albumsByArtist);
+
+                    if ( $number_of_albums > 1) {
+
+                        $query = "DELETE albums, tracks FROM albums
+                                    LEFT JOIN tracks
+                                        ON tracks.AlbumId = albums.AlbumId
+                                    WHERE albums.AlbumId = :albumId";
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
+                        $statement -> execute();
+
+                        
+                    } else {
+                        
+                        $query = "DELETE albums, tracks, artists FROM albums
+                                    LEFT JOIN tracks
+                                        ON tracks.AlbumId = albums.AlbumId
+                                    LEFT JOIN artists
+                                        ON artists.ArtistId = albums.ArtistId
+                                    WHERE albums.AlbumId = :albumId";
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":albumId", $deletedAlbum, PDO :: PARAM_INT);
+                        $statement -> execute();
+                    }
+
+                    header("location: index.php?action=home");
+
+
+                }
+
+                // ADD ALBUM REQUEST HANDLER
+                if (isset($_POST["add-album"])) {
+
+                    $albumTitle = filter_input(INPUT_POST, "album-title", FILTER_SANITIZE_SPECIAL_CHARS);
+                    $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
+                    $artistId = 0;
+
+                    $query = "SELECT * FROM artists";
                     $statement = $pdo -> query($query);
-                    $lastArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)["ArtistId"];
-                    $getArtistId = $lastArtistId + 1;
+                    $artists = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+                    $getArtistId = Null;
 
-                    $query = "INSERT INTO artists (ArtistId, Name) VALUES(:artistId, :name)";
+                    foreach($artists as $artist) {
+                        if ($artist["Name"] == $artistName) {
+                            $getArtistId = $artist["ArtistId"];
+                        }
+                    }
+
+                    if (!$getArtistId) {
+
+                        $query = "SELECT ArtistId FROM artists ORDER BY ArtistId  DESC LIMIT 1";
+                        $statement = $pdo -> query($query);
+                        $lastArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)["ArtistId"];
+                        $getArtistId = $lastArtistId + 1;
+
+                        $query = "INSERT INTO artists (ArtistId, Name) VALUES(:artistId, :name)";
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
+                        $statement -> bindValue(":name", $artistName, PDO :: PARAM_STR);
+                        $statement -> execute();
+
+                    }
+
+                    $query = "SELECT AlbumId FROM albums ORDER BY AlbumId DESC LIMIT 1";
+                    $statement = $pdo -> query($query);
+                    $lastAlbumId = $statement -> fetch(PDO :: FETCH_ASSOC)["AlbumId"];
+                    $newAlbumId = $lastAlbumId + 1;
+
+                    $query =  "INSERT INTO albums (AlbumId, Title, ArtistId) VALUES(:albumId, :title, :artistId)";
                     $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
-                    $statement -> bindValue(":name", $artistName, PDO :: PARAM_STR);
-                    $statement -> execute();
-
-                }
-
-                $query = "SELECT AlbumId FROM albums ORDER BY AlbumId DESC LIMIT 1";
-                $statement = $pdo -> query($query);
-                $lastAlbumId = $statement -> fetch(PDO :: FETCH_ASSOC)["AlbumId"];
-                $newAlbumId = $lastAlbumId + 1;
-
-                $query =  "INSERT INTO albums (AlbumId, Title, ArtistId) VALUES(:albumId, :title, :artistId)";
-                $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":albumId", $newAlbumId, PDO :: PARAM_INT);
-                $statement -> bindValue(":title", $albumTitle, PDO :: PARAM_STR);
-                $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
-                $statement -> execute();
-
-                unset($_POST["add-album"]);
-                unset($_POST["album-title"]);
-                unset($_POST["artist"]);
-
-
-                $query = "SELECT TrackId FROM tracks ORDER BY TrackId DESC LIMIT 1";
-                $statement = $pdo -> query($query);
-                $lastTrackId = $statement -> fetch(PDO :: FETCH_ASSOC)["TrackId"];
-                $submittedTracks = $_POST;
-                $incrementId = 1;
-
-                foreach($submittedTracks as $track){
-
-                    $query =  "INSERT INTO tracks (TrackId, Name, AlbumId) VALUES(:trackId, :name, :albumId)";
-                    $trackSanitized = filter_var($track, FILTER_SANITIZE_SPECIAL_CHARS);
-                    $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":trackId", $lastTrackId + $incrementId, PDO :: PARAM_INT);
-                    $statement -> bindValue(":name", $trackSanitized, PDO :: PARAM_STR);
                     $statement -> bindValue(":albumId", $newAlbumId, PDO :: PARAM_INT);
+                    $statement -> bindValue(":title", $albumTitle, PDO :: PARAM_STR);
+                    $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_INT);
                     $statement -> execute();
-                    $incrementId++;
+
+                    unset($_POST["add-album"]);
+                    unset($_POST["album-title"]);
+                    unset($_POST["artist"]);
+
+
+                    $query = "SELECT TrackId FROM tracks ORDER BY TrackId DESC LIMIT 1";
+                    $statement = $pdo -> query($query);
+                    $lastTrackId = $statement -> fetch(PDO :: FETCH_ASSOC)["TrackId"];
+                    $submittedTracks = $_POST;
+                    $incrementId = 1;
+
+                    foreach($submittedTracks as $track){
+
+                        $query =  "INSERT INTO tracks (TrackId, Name, AlbumId) VALUES(:trackId, :name, :albumId)";
+                        $trackSanitized = filter_var($track, FILTER_SANITIZE_SPECIAL_CHARS);
+                        $statement = $pdo -> prepare($query);
+                        $statement -> bindValue(":trackId", $lastTrackId + $incrementId, PDO :: PARAM_INT);
+                        $statement -> bindValue(":name", $trackSanitized, PDO :: PARAM_STR);
+                        $statement -> bindValue(":albumId", $newAlbumId, PDO :: PARAM_INT);
+                        $statement -> execute();
+                        $incrementId++;
+                    }
+                    
+                    $statement = NULL;
+                    $pdo = NULL;
+
+                    header("location: index.php?action=home");
+
+
                 }
                 
-                $statement = NULL;
-                $pdo = NULL;
+                // SEARCH ARTIST REQUEST HANDLER
+                if (isset($_POST["search-artist"])) {
 
-                header("location: index.php?action=home");
+                    $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
+                    $query = "SELECT * FROM artists WHERE Name = :artistName";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistName", $artistName, PDO :: PARAM_STR);
+                    $statement -> execute();
+                    $searchedArtist = $statement -> fetch(PDO :: FETCH_ASSOC);
+                    if ($searchedArtist) {
 
+                        header("location: index.php?action=artist&artistId=" . $searchedArtist["ArtistId"]);
+                    }else {
+                        header("location: index.php?action=artist&artistId=None");
 
-            }
-            
-            // SEARCH ARTIST REQUEST HANDLER
-            if (isset($_POST["search-artist"])) {
-
-                $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
-                $query = "SELECT * FROM artists WHERE Name = :artistName";
-                $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":artistName", $artistName, PDO :: PARAM_STR);
-                $statement -> execute();
-                $searchedArtist = $statement -> fetch(PDO :: FETCH_ASSOC);
-                if ($searchedArtist) {
-
-                    header("location: index.php?action=artist&artistId=" . $searchedArtist["ArtistId"]);
-                }else {
-                    header("location: index.php?action=artist&artistId=None");
+                    }
 
                 }
 
-            }
+                // UPDATE ARTIST REQUEST HANDLER
+                if(isset($_POST["update-artist"])) {
 
-            // UPDATE ARTIST REQUEST HANDLER
-            if(isset($_POST["update-artist"])) {
+                    $artistNewName = filter_input(INPUT_POST, "new-name", FILTER_SANITIZE_SPECIAL_CHARS);
+                    $artistId = filter_input(INPUT_POST, "artistId", FILTER_SANITIZE_SPECIAL_CHARS);
 
-                $artistNewName = filter_input(INPUT_POST, "new-name", FILTER_SANITIZE_SPECIAL_CHARS);
-                $artistId = filter_input(INPUT_POST, "artistId", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                $query = "UPDATE artists SET Name = :newName WHERE ArtistId = :artistId";
-                $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":newName", $artistNewName, PDO :: PARAM_STR);
-                $statement -> bindValue(":artistId", $artistId, PDO :: PARAM_INT);
-                $statement -> execute();
-
-                $statement = null;
-                header("location: index.php?action=artist");
-
-
-
-            }
-
-            // DELETE ARTIST REQUEST HANDLER
-            if(isset($_POST["confirm-delete"])) {
-                $deletedArtistId = filter_input(INPUT_POST, "deleted-artist-id", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                if($deletedArtistId) {
-                    $query = "SELECT artists.ArtistId, albums.AlbumId, tracks.TrackId
-                                FROM artists
-                                LEFT JOIN albums 
-                                    ON artists.ArtistId = albums.ArtistId
-                                LEFT JOIN tracks
-                                    ON albums.AlbumId = tracks.AlbumId
-                                WHERE artists.ArtistId = :artistId";
-
+                    $query = "UPDATE artists SET Name = :newName WHERE ArtistId = :artistId";
                     $statement = $pdo -> prepare($query);
-                    $statement -> bindValue(":artistId", $deletedArtistId, PDO :: PARAM_INT);
+                    $statement -> bindValue(":newName", $artistNewName, PDO :: PARAM_STR);
+                    $statement -> bindValue(":artistId", $artistId, PDO :: PARAM_INT);
                     $statement -> execute();
-                    $data = $statement -> fetchAll(PDO :: FETCH_ASSOC);
+
+                    $statement = null;
+                    header("location: index.php?action=artist");
 
 
-                    if ( $data ) {
 
-                        if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && (!$data[0]["AlbumId"] ?? !$data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
+                }
 
-                            $query = "DELETE FROM artists WHERE ArtistId = :artistId";
+                // DELETE ARTIST REQUEST HANDLER
+                if(isset($_POST["confirm-delete"])) {
+                    $deletedArtistId = filter_input(INPUT_POST, "deleted-artist-id", FILTER_SANITIZE_SPECIAL_CHARS);
 
-                        } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
-
-                            $query = "DELETE artists, albums FROM artists
-                                        INNER JOIN albums
-                                            ON albums.ArtistId = artists.ArtistId
-                                        WHERE artists.ArtistId = :artistId";
-
-                        } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && ($data[0]["TrackId"] ?? $data["TrackId"])){
-
-                            $query = "DELETE artists, albums, tracks FROM artists
-                                        INNER JOIN albums
-                                            ON albums.ArtistId = artists.ArtistId
-                                        INNER JOIN tracks
-                                            ON tracks.AlbumId = albums.AlbumId
-                                        WHERE artists.ArtistId = :artistId";
-                        
-                        }
+                    if($deletedArtistId) {
+                        $query = "SELECT artists.ArtistId, albums.AlbumId, tracks.TrackId
+                                    FROM artists
+                                    LEFT JOIN albums 
+                                        ON artists.ArtistId = albums.ArtistId
+                                    LEFT JOIN tracks
+                                        ON albums.AlbumId = tracks.AlbumId
+                                    WHERE artists.ArtistId = :artistId";
 
                         $statement = $pdo -> prepare($query);
                         $statement -> bindValue(":artistId", $deletedArtistId, PDO :: PARAM_INT);
                         $statement -> execute();
+                        $data = $statement -> fetchAll(PDO :: FETCH_ASSOC);
 
+
+                        if ( $data ) {
+
+                            if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && (!$data[0]["AlbumId"] ?? !$data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
+
+                                $query = "DELETE FROM artists WHERE ArtistId = :artistId";
+
+                            } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && (!$data[0]["TrackId"] ?? !$data["TrackId"])){
+
+                                $query = "DELETE artists, albums FROM artists
+                                            INNER JOIN albums
+                                                ON albums.ArtistId = artists.ArtistId
+                                            WHERE artists.ArtistId = :artistId";
+
+                            } else if (($data[0]["ArtistId"] ?? $data["ArtistId"]) && ($data[0]["AlbumId"] ?? $data["AlbumId"]) && ($data[0]["TrackId"] ?? $data["TrackId"])){
+
+                                $query = "DELETE artists, albums, tracks FROM artists
+                                            INNER JOIN albums
+                                                ON albums.ArtistId = artists.ArtistId
+                                            INNER JOIN tracks
+                                                ON tracks.AlbumId = albums.AlbumId
+                                            WHERE artists.ArtistId = :artistId";
+                            
+                            }
+
+                            $statement = $pdo -> prepare($query);
+                            $statement -> bindValue(":artistId", $deletedArtistId, PDO :: PARAM_INT);
+                            $statement -> execute();
+
+                        }
+
+                        $statement = null;
+                        $pdo = null;
                     }
 
-                    $statement = null;
-                    $pdo = null;
-                }
+                    header("location: index.php?action=artist");
+                }  
 
-                header("location: index.php?action=artist");
-            }  
+    } else {
 
-} else {
+        // GET REQUEST LOGIC
 
-    // GET REQUEST LOGIC
+        //HOME DISPLAY
 
-    //HOME DISPLAY
-    if(isset($_GET["action"])) {
-
-        $action = $_GET["action"];
+        $action = $_GET["action"] ?? "home";
 
         if ($action == "home") {
-             $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT, [
+            $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT, [
                 'options' => [
                     'default' => 1,  
                     'min_range' => 1 
@@ -488,7 +487,6 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         }
     }
-}
 
 ?>
 
@@ -724,7 +722,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
         <form action="index.php" method="post" class="artist-form">
             <input type="text" class="artist-update-field" name="new-name" placeholder="Enter new name" required>
-            <input type="hidden" class="artist-update-field" name="artistId" value="<?php echo htmlspecialchars($artist[0]["ArtistId"] ?? $noAlbumArtist["ArtistId"]) ?>">
+            <input type="hidden" class="artist-update-field" name="artistId" value="<?php echo htmlspecialchars($artist[0]["artistId"] ?? $noAlbumArtist["ArtistId"]) ?>">
             <button type="submit" class="add-album-btn" name="update-artist">UPDATE</button>
         </form>
     <?php endif; ?>
