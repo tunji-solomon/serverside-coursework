@@ -78,7 +78,7 @@ h2 {
 
 .header-container,
 .album-container,
-.create-artist-container{
+.search-artist-container{
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     border-bottom: 2px solid rgb(37, 37, 37);
@@ -129,7 +129,7 @@ h2 {
 .form-add-track,
 .cancel-btn,
 .add-album-btn,
-.create-artist-btn {
+.search-artist-btn {
     width: 100px;
     padding: 6px 8px;
     text-align: center;
@@ -140,9 +140,13 @@ h2 {
     transition: 0.5s;
 }
 
+.search-artist-btn {
+    justify-self: center;
+    
+}
 #btn-view,
 .add-album-btn,
-.create-artist-btn {
+.search-artist-btn {
     background-color: rgb(6, 84, 180);
 }
 
@@ -156,7 +160,7 @@ h2 {
 
 #btn-view:hover,
 .add-album-btn:hover,
-.create-artist-btn:hover {
+.search-artist-btn:hover {
     background-color: rgb(3, 103, 226);
 }
 
@@ -410,7 +414,6 @@ h2 {
     display: grid;
     grid-template-columns: 1fr;
     gap: 20px;
-    margin-top: 200px;
     overflow: hidden;
     
 }
@@ -420,7 +423,7 @@ h2 {
 }
 
 .add-album-btn,
-.create-artist-btn {
+.search-artist-btn {
     width: 200px;
     justify-self: center;
     margin: 10px;
@@ -437,7 +440,7 @@ h2 {
     display: grid;
     grid-template-columns: 1fr;
 }
-.create-artist-container {
+.search-artist-container {
     grid-template-columns: 1fr;
     gap: 50px;
     align-items: center;
@@ -446,7 +449,6 @@ h2 {
 
 }
 .artists-container {
-    border: 2px solid rgb(37, 37, 37);
     display: grid;
     grid-template-columns: 1fr;
     margin: 30px 0px;
@@ -460,7 +462,7 @@ h2 {
     display: grid;
     grid-template-columns: 2fr 1fr;
     height: 30px;
-    border-bottom: 0.5px solid rgb(37, 37, 37);
+    border: 0.5px solid rgb(37, 37, 37);
     padding: 15px 20px;
 
 }
@@ -475,7 +477,12 @@ h2 {
 
 }
 
-.create-artist {
+#search-artist-message {
+    text-align: center;
+    font-size:xx-large;
+}
+
+.search-artist {
     margin-bottom: 0px;
 }
 

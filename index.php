@@ -16,6 +16,8 @@ $pdo -> setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 }
 
 $action = "";
+$artistData = [];
+$searchedArtist = NULL;
 
 //SANITIZED INPUT BEFORE USE
 $albumId = filter_input(INPUT_GET , "albumId", FILTER_SANITIZE_SPECIAL_CHARS);
@@ -244,25 +246,22 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
             }
             
-            // CREATE ARTIST REQUEST HANDLER
-            if (isset($_POST["create-artist"])) {
+            // SEARCH ARTIST REQUEST HANDLER
+            if (isset($_POST["search-artist"])) {
 
-                $query = "SELECT * FROM artists ORDER BY ArtistId DESC LIMIT 1";
-                $statement = $pdo -> query($query);
-                $lastArtistId = $statement -> fetch(PDO :: FETCH_ASSOC)["ArtistId"];
-                $newArtistId = $lastArtistId + 1;
-                $newArtistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
-
-                $query = "INSERT INTO artists (ArtistId, Name) VALUES(:artistId, :artistName)";
+                $artistName = filter_input(INPUT_POST, "artist", FILTER_SANITIZE_SPECIAL_CHARS);
+                $query = "SELECT * FROM artists WHERE Name = :artistName";
                 $statement = $pdo -> prepare($query);
-                $statement -> bindValue(":artistId", $newArtistId, PDO :: PARAM_INT);
-                $statement -> bindValue(":artistName", $newArtistName, PDO :: PARAM_STR);
+                $statement -> bindValue(":artistName", $artistName, PDO :: PARAM_STR);
                 $statement -> execute();
+                $searchedArtist = $statement -> fetch(PDO :: FETCH_ASSOC);
+                if ($searchedArtist) {
 
-                $statement = null;
-                $pdo = null;
+                    header("location: index.php?action=artist&artistId=" . $searchedArtist["ArtistId"]);
+                }else {
+                    header("location: index.php?action=artist&artistId=None");
 
-                header("location: index.php?action=artist");
+                }
 
             }
 
@@ -425,21 +424,37 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             ]);
 
             $pagination_start = ($page - 1) * 10;
+            $getArtistId = filter_input(INPUT_GET, "artistId", FILTER_SANITIZE_SPECIAL_CHARS);
+            if (!$getArtistId || $getArtistId != "None"){
 
-            $query = "SELECT * FROM artists
-                        ORDER BY ArtistId
-                        DESC   
-                        LIMIT :pagination_start, :count_per_page";
-
-            $statement = $pdo->prepare($query);
-            $statement->bindValue(':pagination_start', $pagination_start, PDO::PARAM_INT);
-            $statement->bindValue(':count_per_page', 10, PDO::PARAM_INT);
-            $statement->execute();
-            $data = $statement->fetchAll(PDO::FETCH_ASSOC);
-
-            $count_artists = "SELECT COUNT(*) FROM artists";
-            $statement = $pdo->query($count_artists);
-            $number_of_artists = $statement->fetchColumn();
+                if ($getArtistId) {
+                    $query = "SELECT * FROM artists WHERE ArtistId = :artistId";
+                    $statement = $pdo -> prepare($query);
+                    $statement -> bindValue(":artistId", $getArtistId, PDO :: PARAM_STR);
+                    $statement -> execute();
+                    $searchedArtist = $statement -> fetch(PDO :: FETCH_ASSOC);
+    
+                }else {
+    
+                    $query = "SELECT * FROM artists
+                                ORDER BY ArtistId
+                                DESC   
+                                LIMIT :pagination_start, :count_per_page";
+        
+                    $statement = $pdo->prepare($query);
+                    $statement->bindValue(':pagination_start', $pagination_start, PDO::PARAM_INT);
+                    $statement->bindValue(':count_per_page', 10, PDO::PARAM_INT);
+                    $statement->execute();
+                    $artistData = $statement->fetchAll(PDO::FETCH_ASSOC);
+        
+                    if(count($artistData) > 1){
+        
+                        $count_artists = "SELECT COUNT(*) FROM artists";
+                        $statement = $pdo->query($count_artists);
+                        $number_of_artists = $statement->fetchColumn();
+                    }
+                }
+            }
             
         }
 
@@ -606,7 +621,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
 
     <?php if ($action == "album-add"): ?>
-                
+        <h3 class="headers">CREATE ALBUM</h3>
         <form action="?action=home" method="post" class="add-album-form">
             <input type="text" name="artist" list="artists" class="form-field add-album" placeholder="Select/Enter a new artist" required>
             <datalist type="text" id="artists">
@@ -628,39 +643,52 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <?php if($action == "artist"): ?>
                             
         <div class="artist-page">
-            <div class="create-artist-container">
-                <h3 class="headers create-artist">CREATE ARTIST</h3>
+            <div class="search-artist-container">
+                <h3 class="headers search-artist"></h3>
                 <form action="" method="post" class="artist-form">
                     <input type="text" placeholder="Enter artist name" name="artist" class="form-field add-artist-form-field" required>
-                    <button type="submit" class="create-artist-btn" name="create-artist">CREATE</button>
+                    <button type="submit" class="search-artist-btn" name="search-artist">SEARCH</button>
                 </form>
             </div>
             <div class="view-artists-container">
                 <h3 class="headers">ARTISTS</h3>
                 <div class="artists-container">
-                    <?php foreach($data as $artist):?>
+                    <?php if(!empty($artistData)): ?> 
+                        <?php foreach($artistData as $artist):?>
+                            <div class="artist-row">
+                                <div class="artist-name"><?php echo htmlspecialchars($artist["Name"]) ?></div>
+                                <div class="action-btn-container artist-view">
+                                    <a href='?action=artist-view&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>'   class='artist-page-btn'>View</a>
+                                    <a href='?action=artist-update&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Update</a>
+                                    <a href='?action=artist-delete&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Delete</a>
+                                </div>
+                            </div>
+                        <?php endforeach ?>
+                        <div class="pagination">
+                            <?php
+                                $total_pages = ceil($number_of_artists / 10);
+                                if ($page > 1) {
+                                    echo "<a class='pagination-btn' href='?action=artist&page=" . ($page - 1) . "'>Previous</a>";
+                                }
+                                echo $page . " of " . $total_pages;
+                                if ($page < $total_pages) {
+                                    echo "<a class='pagination-btn next-btn' href='?action=artist&page=" . ($page + 1) . "'>Next</a>";
+                                }
+                            ?>
+                        </div>
+                    <?php elseif ($searchedArtist && !empty($searchedArtist)): ?>
                         <div class="artist-row">
-                        <div class="artist-name"><?php echo htmlspecialchars($artist["Name"]) ?></div>
-                        <div class="action-btn-container artist-view">
-                            <a href='?action=artist-view&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>'   class='artist-page-btn'>View</a>
-                            <a href='?action=artist-update&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Update</a>
-                            <a href='?action=artist-delete&artistId=<?php echo htmlspecialchars($artist['ArtistId']) ?>' class='artist-page-btn'>Delete</a>
+                            <div class="artist-name"><?php echo htmlspecialchars($searchedArtist["Name"]) ?></div>
+                            <div class="action-btn-container artist-view">
+                                <a href='?action=artist-view&artistId=<?php echo htmlspecialchars($searchedArtist['ArtistId']) ?>'   class='artist-page-btn'>View</a>
+                                <a href='?action=artist-update&artistId=<?php echo htmlspecialchars($searchedArtist['ArtistId']) ?>' class='artist-page-btn'>Update</a>
+                                <a href='?action=artist-delete&artistId=<?php echo htmlspecialchars($searchedArtist['ArtistId']) ?>' class='artist-page-btn'>Delete</a>
+                            </div>
                         </div>
-                        </div>
-                    <?php endforeach ?>
-                </div>
-                <div class="pagination">
-                    <?php
-                        $total_pages = ceil($number_of_artists / 10);
-                        if ($page > 1) {
-                            echo "<a class='pagination-btn' href='?action=artist&page=" . ($page - 1) . "'>Previous</a>";
-                        }
-                        echo $page . " of " . $total_pages;
-                        if ($page < $total_pages) {
-                            echo "<a class='pagination-btn next-btn' href='?action=artist&page=" . ($page + 1) . "'>Next</a>";
-                        }
-                    ?>
-                </div>
+                    <?php elseif (empty($artistData) && empty($searchedArtist)): ?>
+                        <h3 id="search-artist-message">Artist with name not found....</h3>
+                    <?php endif;?>
+                </div>                    
             </div>
         </div>
     <?php endif; ?>
